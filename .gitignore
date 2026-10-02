@@ -1,0 +1,6 @@
+*.nii
+*.nii.gz
+*.bedpostX/
+*.eddy_*
+*.ecclog
+.DS_Store
