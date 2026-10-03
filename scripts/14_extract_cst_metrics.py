@@ -34,17 +34,15 @@ def get_stats(data, mask):
 def main():
     print("=== [DAY 18] Whole-Tract CST Quantitative Metrics Extraction ===")
 
-    # 1. Check required inputs
     required_files = [CST_MASK_PATH, FA_PATH, MD_PATH, L1_PATH, L2_PATH, L3_PATH]
     for path in required_files:
         if not os.path.exists(path):
             raise FileNotFoundError(f"Missing required file: {path}")
 
-    # 2. Load volumes
     mask_img = nib.load(CST_MASK_PATH)
     mask = mask_img.get_fdata() > 0
 
-    voxel_zooms = mask_img.header.get_zooms()[:3]
+    voxel_zooms = [float(z) for z in mask_img.header.get_zooms()[:3]]
     voxel_volume_mm3 = float(np.prod(voxel_zooms))
     voxel_count = int(np.sum(mask))
     total_volume_mm3 = float(voxel_count * voxel_volume_mm3)
@@ -55,10 +53,8 @@ def main():
     l2_data = nib.load(L2_PATH).get_fdata()
     l3_data = nib.load(L3_PATH).get_fdata()
 
-    # Calculate Radial Diffusivity (RD) = (L2 + L3) / 2
     rd_data = (l2_data + l3_data) / 2.0
 
-    # 3. Compile Summary Statistics
     summary = {
         "tract_name": "Left Corticospinal Tract (CST)",
         "threshold": "5% waytotal probability density",
@@ -75,15 +71,10 @@ def main():
         }
     }
 
-    # 4. Save to JSON
     with open(OUT_JSON, "w") as f:
         json.dump(summary, f, indent=4)
 
-    print(f"[✓] Quantitative summary metrics saved: {OUT_JSON}")
-    print(f"[i] CST Volume: {total_volume_mm3:.2f} mm³ ({voxel_count} voxels)")
-    print(f"[i] Mean FA: {summary['metrics']['FA']['mean']:.4f} ± {summary['metrics']['FA']['std']:.4f}")
-    print(f"[i] Mean MD: {summary['metrics']['MD']['mean']:.6f} ± {summary['metrics']['MD']['std']:.6f}")
-    print("=== [SUCCESS] Day 18 Quantitative Extraction Completed! ===")
+    print(f"[✓] Quantitative summary metrics successfully saved: {OUT_JSON}")
 
 if __name__ == "__main__":
     main()
