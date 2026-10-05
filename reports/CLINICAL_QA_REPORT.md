@@ -1,6 +1,6 @@
 # Clinical dMRI CST Tractography Pipeline QA Report
 
-**Generated:** 2026-10-03 09:57:27  
+**Generated:** 2026-10-05 22:05:43  
 **Pipeline Target:** Reconstructed Corticospinal Tract (Left CST)  
 **Host Environment:** Ubuntu 24.04 LTS (WSL2) / Oxford FSL 6.0  
 
