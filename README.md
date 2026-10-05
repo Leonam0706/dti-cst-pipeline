@@ -1,96 +1,50 @@
 # Clinical dMRI Corticospinal Tract (CST) Probabilistic Tractography Pipeline
 
-[![OS](https://img.shields.io/badge/OS-Ubuntu%2024.04%20LTS%20%2F%20WSL2-orange.svg)](https://ubuntu.com/)
-[![Python](https://img.shields.io/badge/Python-3.12-blue.svg)](https://www.python.org/)
-[![Toolkit](https://img.shields.io/badge/Neuroimaging-Oxford%20FSL-red.svg)](https://fsl.fmrib.ox.ac.uk/fsl/fslwiki)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![dMRI CST Pipeline CI](https://github.com/Leonam0706/dti-cst-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/Leonam0706/dti-cst-pipeline/actions)
+[![GitHub release](https://img.shields.io/github/v/release/Leonam0706/dti-cst-pipeline)](https://github.com/Leonam0706/dti-cst-pipeline/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.12](https://img.shields.io/badge/Python-3.12-blue.svg)](https://www.python.org/)
 
-An end-to-end, reproducible diffusion MRI (dMRI) processing pipeline built for clinical neuro-oncology workflows. This repository automates white matter tract reconstruction—specifically targeting the **Left Corticospinal Tract (CST)**—and extracts microstructural diffusion metrics (FA, MD, AD, RD) to assess tract integrity near intracranial lesions.
-
----
-
-## 🛠 System Architecture & Workflow
-For a deep dive into data structures and script specifications, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+An automated, end-to-end production-grade pipeline for diffusion MRI (dMRI) preprocessing, Bayesian probabilistic tractography (`bedpostx` / `probtrackx2`), microstructural along-tract profiling (FA & MD), and clinical Quality Assurance (QA) reporting.
 
 ---
 
-## 🚀 Quick Start & Master Execution
+## 📌 Executive Summary
 
-### Prerequisites
-- Ubuntu 24.04 LTS or WSL2
-- Python 3.10+ (`nibabel`, `numpy`, `pandas`, `matplotlib`)
-- Oxford FSL (FMRIB Software Library)
+The **Corticospinal Tract (CST)** is the primary motor pathway in the human brain. Microstructural alterations along the CST (measured via Fractional Anisotropy and Mean Diffusivity) serve as vital biomarkers in stroke recovery, neuro-oncology surgical planning, and motor neuron disease.
 
-### One-Click Execution
-Run the master orchestrator to process the dataset from end to end:
+This pipeline automates the complete analytical workflow from raw NIfTI DICOM conversions to clinical reporting, ensuring 100% execution reproducibility via Docker, automated unit testing with `pytest`, and Continuous Integration via GitHub Actions.
 
-```bash
-cd ~/dti-cst-pipeline
-./run_pipeline.sh
 ---
 
-### Step 2: Install Pytest & Create Test Suite (Day 23)
+## 🏗️ Pipeline Architecture
 
-Now run this block to install `pytest` and set up `tests/test_pipeline_integrity.py`:
-
-```bash
-pip3 install pytest
-mkdir -p tests
-
-cat << 'EOF' > tests/test_pipeline_integrity.py
-#!/usr/bin/env python3
-"""
-Script: test_pipeline_integrity.py
-Description: Pytest validation suite for checking data dimensions, 
-             scalar metric ranges, and output file integrity.
-"""
-
-import os
-import json
-import pytest
-import numpy as np
-import nibabel as nib
-
-RAW_DIR = "data/raw"
-TRACK_DIR = "data/cst_tracking"
-REPORTS_DIR = "reports"
-
-@pytest.mark.skipif(not os.path.exists(os.path.join(RAW_DIR, "dti_FA.nii.gz")), reason="DTI FA file not found")
-def test_nifti_dimensions_and_fa_range():
-    fa_path = os.path.join(RAW_DIR, "dti_FA.nii.gz")
-    md_path = os.path.join(RAW_DIR, "dti_MD.nii.gz")
-    
-    assert os.path.exists(fa_path), "FA map does not exist."
-    assert os.path.exists(md_path), "MD map does not exist."
-
-    fa_img = nib.load(fa_path)
-    md_img = nib.load(md_path)
-
-    assert fa_img.shape == md_img.shape, "FA and MD spatial dimensions mismatch."
-
-    fa_data = fa_img.get_fdata()
-    valid_fa = fa_data[~np.isnan(fa_data)]
-
-    assert np.all(valid_fa >= 0.0) and np.all(valid_fa <= 1.0), "FA values out of [0, 1] range."
-
-@pytest.mark.skipif(not os.path.exists(os.path.join(TRACK_DIR, "cst_summary_metrics.json")), reason="Metrics JSON not found")
-def test_summary_metrics_json_schema():
-    json_path = os.path.join(TRACK_DIR, "cst_summary_metrics.json")
-    assert os.path.exists(json_path), "cst_summary_metrics.json missing."
-
-    with open(json_path, "r") as f:
-        data = json.load(f)
-
-    assert "tract_name" in data
-    assert "volume" in data
-    assert "total_volume_mm3" in data["volume"]
-    assert "metrics" in data
-    assert "FA" in data["metrics"]
-    assert "MD" in data["metrics"]
-    assert data["volume"]["total_volume_mm3"] > 0, "CST volume must be > 0."
-
-@pytest.mark.skipif(not os.path.exists(os.path.join(REPORTS_DIR, "CLINICAL_QA_REPORT.md")), reason="QA Report not found")
-def test_clinical_qa_report_exists():
-    report_path = os.path.join(REPORTS_DIR, "CLINICAL_QA_REPORT.md")
-    assert os.path.exists(report_path), "CLINICAL_QA_REPORT.md is missing."
-    assert os.path.getsize(report_path) > 100, "CLINICAL_QA_REPORT.md is empty."
+```text
+  [ Raw dMRI (.nii.gz) + bvals/bvecs ]
+                   │
+                   ▼
+  [ 1. Visual QA & Data Verification ] ───► scripts/00_verify_data.sh
+                   │
+                   ▼
+  [ 2. Brain Extraction (BET) ]       ───► scripts/02_brain_extraction.sh
+                   │
+                   ▼
+  [ 3. Eddy Current & Motion Correction] ──► scripts/03_eddy_correction.sh
+                   │
+                   ▼
+  [ 4. DTI Tensor Fitting (dtifit) ]   ───► scripts/04_dtifit.sh
+                   │
+                   ▼
+  [ 5. Fiber Orientation Estimation ]  ───► scripts/06_bedpostx_prep.sh
+                   │
+                   ▼
+  [ 6. Seed/Target ROI Definition ]    ───► scripts/09_define_cst_rois.py
+                   │
+                   ▼
+  [ 7. Probabilistic Tractography ]    ───► scripts/10_run_probtrackx.sh
+                   │
+                   ▼
+  [ 8. Microstructural Quantification ] ──► scripts/12_profile_cst.py
+                   │
+                   ▼
+  [ 9. Interactive Dashboard & QA ]   ───► app.py & CLINICAL_QA_REPORT.md
