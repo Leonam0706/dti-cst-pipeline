@@ -1,51 +1,42 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # ==============================================================================
-# Script: run_pipeline.sh
-# Description: Master orchestrator script for the clinical dMRI-to-CST 
-#              probabilistic tractography and microstructural profiling pipeline.
+# Pipeline Master Orchestrator: Clinical dMRI CST Probabilistic Tractography
 # ==============================================================================
-
-set -e  # Exit immediately if any command fails
-
-LOG_DIR="logs"
-mkdir -p "$LOG_DIR"
-LOG_FILE="${LOG_DIR}/pipeline_execution_$(date +%Y%m%d_%H%M%S).log"
-
-exec > >(tee -i "$LOG_FILE") 2>&1
+set -euo pipefail
 
 echo "================================================================="
-echo "  CLINICAL dMRI-TO-CST TRACTOGRAPHY PIPELINE (WSL2 / Ubuntu 24.04)"
-echo "  Started at: $(date)"
+echo " Starting Clinical dMRI CST Tractography Pipeline Execution "
 echo "================================================================="
 
-# --- Stage 1: Data Verification & Tensor Fitting ---
-echo -e "\n[STAGE 1] Running Tensor Fitting & Microstructural Analysis..."
-python3 scripts/05_analyze_dti.py
+# Step 0: Data Verification
+echo "[1/6] Running Data Verification & Visual QA Setup..."
+bash scripts/00_verify_data.sh
 
-# --- Stage 2: ROI Generation ---
-echo -e "\n[STAGE 2] Defining CST Seed, Waypoint, and Exclusion ROIs..."
+# Step 1-2: Preprocessing & Brain Extraction
+echo "[2/6] Executing Brain Extraction & Eddy Current Correction..."
+bash scripts/02_brain_extraction.sh
+bash scripts/03_eddy_correction.sh
+
+# Step 3-4: DTI Fitting & Tensor Modeling
+echo "[3/6] Fitting Diffusion Tensors (dtifit) & Bedpostx Modeling..."
+bash scripts/04_dtifit.sh
+bash scripts/06_bedpostx_prep.sh
+
+# Step 5: Probabilistic Tractography
+echo "[4/6] Defining CST ROIs & Running Probtrackx2..."
 python3 scripts/09_define_cst_rois.py
+bash scripts/10_run_probtrackx.sh
 
-# --- Stage 3: Probabilistic Tractography ---
-echo -e "\n[STAGE 3] Running Probabilistic Tractography (probtrackx2)..."
-./scripts/10_run_probtrackx.sh
-
-# --- Stage 4: Density Thresholding & Normalization ---
-echo -e "\n[STAGE 4] Normalizing & Thresholding CST Density Map..."
+# Step 6: Post-processing, Metric Extraction & QA Reporting
+echo "[5/6] Extracting CST Metrics & Profiling Along Tract..."
 python3 scripts/11_threshold_cst.py
-
-# --- Stage 5: Microstructural Profiling & Visualization ---
-echo -e "\n[STAGE 5] Profiling Along-Tract Metrics & Rendering Overlays..."
 python3 scripts/12_profile_cst.py
-python3 scripts/13_render_3d_cst.py
-
-# --- Stage 6: Quantitative Extraction & QA Report Generation ---
-echo -e "\n[STAGE 6] Extracting Metrics & Generating Clinical QA Report..."
 python3 scripts/14_extract_cst_metrics.py
+
+echo "[6/6] Generating Final Clinical QA Report..."
 python3 scripts/15_generate_qa_report.py
 
-echo -e "\n================================================================="
-echo "  [SUCCESS] End-to-End CST Pipeline Completed Successfully!"
-echo "  Finished at: $(date)"
-echo "  Log File Saved To: ${LOG_FILE}"
+echo "================================================================="
+echo " Pipeline Execution Completed Successfully! "
+echo " Clinical Report Generated at: reports/CLINICAL_QA_REPORT.md "
 echo "================================================================="
