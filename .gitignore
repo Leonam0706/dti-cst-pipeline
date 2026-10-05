@@ -1,6 +1,21 @@
+# Neuroimaging Large Binary Files
 *.nii
 *.nii.gz
-*.bedpostX/
-*.eddy_*
-*.ecclog
+*.bvec
+*.bval
+*.nii.gz.bedpostX/
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# System / OS Artifacts
 .DS_Store
+Thumbs.db
+
+# Virtual Environments
+venv/
+.venv/
+env/
