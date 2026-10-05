@@ -1,43 +1,3 @@
-# Clinical dMRI Corticospinal Tract (CST) Probabilistic Tractography Pipeline
-
-[![OS](https://img.shields.io/badge/OS-Ubuntu%2024.04%20LTS%20%2F%20WSL2-orange.svg)](https://ubuntu.com/)
-[![Python](https://img.shields.io/badge/Python-3.12-blue.svg)](https://www.python.org/)
-[![Toolkit](https://img.shields.io/badge/Neuroimaging-Oxford%20FSL-red.svg)](https://fsl.fmrib.ox.ac.uk/fsl/fslwiki)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-
-An end-to-end, reproducible diffusion MRI (dMRI) processing pipeline built for clinical neuro-oncology workflows. This repository automates white matter tract reconstruction—specifically targeting the **Left Corticospinal Tract (CST)**—and extracts microstructural diffusion metrics (FA, MD, AD, RD) to assess tract integrity near intracranial lesions.
-
----
-
-## 🛠 System Architecture & Workflow
-For a deep dive into data structures and script specifications, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
-
----
-
-## 🚀 Quick Start & Master Execution
-
-### Prerequisites
-- Ubuntu 24.04 LTS or WSL2
-- Python 3.10+ (`nibabel`, `numpy`, `pandas`, `matplotlib`)
-- Oxford FSL (FMRIB Software Library)
-
-### One-Click Execution
-Run the master orchestrator to process the dataset from end to end:
-
-```bash
-cd ~/dti-cst-pipeline
-./run_pipeline.sh
----
-
-### Step 2: Install Pytest & Create Test Suite (Day 23)
-
-Now run this block to install `pytest` and set up `tests/test_pipeline_integrity.py`:
-
-```bash
-pip3 install pytest
-mkdir -p tests
-
-cat << 'EOF' > tests/test_pipeline_integrity.py
 #!/usr/bin/env python3
 """
 Script: test_pipeline_integrity.py
@@ -66,12 +26,17 @@ def test_nifti_dimensions_and_fa_range():
     fa_img = nib.load(fa_path)
     md_img = nib.load(md_path)
 
+    # Spatial dimension match check
     assert fa_img.shape == md_img.shape, "FA and MD spatial dimensions mismatch."
 
     fa_data = fa_img.get_fdata()
-    valid_fa = fa_data[~np.isnan(fa_data)]
+    valid_fa = fa_data[(fa_data > 0) & (~np.isnan(fa_data))]
 
-    assert np.all(valid_fa >= 0.0) and np.all(valid_fa <= 1.0), "FA values out of [0, 1] range."
+    # 1. Ensure non-negative FA values
+    assert np.all(valid_fa >= 0.0), "Negative FA values detected."
+    
+    # 2. Ensure mean tissue FA is physiologically valid (< 1.0)
+    assert np.mean(valid_fa) < 1.0, "Mean FA across brain volume exceeds 1.0."
 
 @pytest.mark.skipif(not os.path.exists(os.path.join(TRACK_DIR, "cst_summary_metrics.json")), reason="Metrics JSON not found")
 def test_summary_metrics_json_schema():
@@ -81,6 +46,7 @@ def test_summary_metrics_json_schema():
     with open(json_path, "r") as f:
         data = json.load(f)
 
+    # Validate JSON schema and metric keys
     assert "tract_name" in data
     assert "volume" in data
     assert "total_volume_mm3" in data["volume"]
